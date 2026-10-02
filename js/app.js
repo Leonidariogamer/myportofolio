@@ -44,6 +44,7 @@
 			p.hidden = !on;
 			p.classList.toggle('is-entering', on);
 		});
+		document.getElementById('tilt').dataset.pose = name;
 		const active = $(`#tab-${name}`);
 		if (pose) pose.textContent = active.dataset.pose;
 		const idx = order.indexOf(name);
@@ -293,6 +294,93 @@
 		raf = requestAnimationFrame(frame);
 	}
 
+	/* ---------- Secrets: confetti, Konami code, hidden paw game ---------- */
+	function openGame() {
+		const go = () => window.PawGame.open();
+		if (window.PawGame) return go();
+		const s = document.createElement('script');
+		s.src = 'js/game.js';
+		s.onload = go;
+		document.head.append(s);
+	}
+
+	function toast(msg) {
+		const t = document.createElement('div');
+		t.className = 'toast';
+		t.setAttribute('role', 'status');
+		t.textContent = msg;
+		document.body.append(t);
+		setTimeout(() => t.remove(), 2600);
+	}
+
+	function confetti() {
+		if (reduceMotion.matches) return;
+		const box = document.createElement('div');
+		box.className = 'confetti';
+		box.setAttribute('aria-hidden', 'true');
+		document.body.append(box);
+		for (let i = 0; i < 40; i++) {
+			const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			el.setAttribute('viewBox', '0 0 24 24');
+			el.innerHTML = STICKERS[i % STICKERS.length];
+			el.style.setProperty('--s', (26 + Math.random() * 30) + 'px');
+			el.style.setProperty('--f', FILLS[i % FILLS.length]);
+			const dx = (Math.random() - .5) * innerWidth * .9, dy = -120 - Math.random() * 280, rot = (Math.random() - .5) * 720;
+			el.animate([
+				{ transform: 'translate(0,0) rotate(0)', opacity: 1 },
+				{ transform: `translate(${dx * .7}px,${dy}px) rotate(${rot * .6}deg)`, opacity: 1, offset: .4 },
+				{ transform: `translate(${dx}px,${dy + innerHeight}px) rotate(${rot}deg)`, opacity: 0 }
+			], { duration: 1500 + Math.random() * 900, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
+			box.append(el);
+		}
+		setTimeout(() => box.remove(), 2600);
+	}
+
+	function secret() { confetti(); toast('Secret level unlocked'); setTimeout(openGame, 900); }
+
+	const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+	const GLYPH = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', b: 'B', a: 'A' };
+	const hud = document.createElement('div');
+	hud.className = 'kcode';
+	hud.setAttribute('aria-hidden', 'true');
+	KONAMI.forEach(k => { const s = document.createElement('span'); s.textContent = GLYPH[k]; hud.append(s); });
+	document.body.append(hud);
+	const pips = [...hud.children];
+	let ki = 0, hudTimer = 0;
+	function hudShow(n) {
+		clearTimeout(hudTimer);
+		hud.classList.remove('fail');
+		pips.forEach((p, i) => p.classList.toggle('on', i < n));
+		hud.classList.add('show');
+		hudTimer = setTimeout(() => hud.classList.remove('show'), 2200);
+	}
+	function nudge(n) { // the portrait wobbles a bit more with every correct key
+		if (reduceMotion.matches) return;
+		const a = Math.min(2 + n * .8, 9) * (n % 2 ? 1 : -1);
+		$('#portrait').animate([{ transform: 'none' }, { transform: `rotate(${a}deg) scale(${1 + n * .006})`, offset: .4 }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.16,1,.3,1)' });
+	}
+	document.addEventListener('keydown', e => {
+		const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+		const before = ki;
+		ki = k === KONAMI[ki] ? ki + 1 : (k === KONAMI[0] ? 1 : 0);
+		if (ki > before) nudge(ki);
+		if (ki === KONAMI.length) {
+			ki = 0; hudShow(KONAMI.length); hud.classList.add('done');
+			setTimeout(() => { hud.classList.remove('show', 'done'); }, 900);
+			if (!reduceMotion.matches) $('#portrait').animate([{ transform: 'rotate(0) scale(1)' }, { transform: 'rotate(360deg) scale(1.18)', offset: .5 }, { transform: 'rotate(720deg) scale(1)' }], { duration: 1300, easing: 'cubic-bezier(.65,0,.35,1)' });
+			secret();
+		} else if (ki >= 2) hudShow(ki);
+		else if (before >= 2) { hud.classList.add('fail'); pips.forEach(p => p.classList.remove('on')); clearTimeout(hudTimer); hudTimer = setTimeout(() => hud.classList.remove('show', 'fail'), 450); }
+	});
+
+	let taps = 0, tapTimer = 0; // five quick taps on the portrait
+	$('#portrait').addEventListener('click', () => {
+		clearTimeout(tapTimer);
+		tapTimer = setTimeout(() => { taps = 0; }, 1200);
+		if (++taps >= 5) { taps = 0; secret(); }
+	});
+	$('#secret').addEventListener('click', openGame);
+
 	/* ---------- Works ---------- */
 	const LANG_COLORS = { Python: '#3572A5', JavaScript: '#F1E05A', HTML: '#E34C26', CSS: '#7B52B6', Batchfile: '#C1F12E' };
 	const REPOS = [
@@ -424,7 +512,6 @@
 	/* ---------- Discord avatar -> portrait + palette ---------- */
 	const pfp = $('.pfp');
 	const root = document.documentElement.style;
-	const NAMES = ['Main colour', 'Second colour', 'Third colour', 'Fourth colour', 'Fifth colour'];
 	let avatarUrl = '';
 
 	function toHsl([r, g, b]) {
@@ -438,37 +525,107 @@
 	const hsl = (h, s, l) => `hsl(${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%)`;
 	const hex = rgb => '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
 
+	// perceptual colour distance (CIELAB), so a pink next to a peach counts as different even when their RGB values are close
+	function lab([r, g, b]) {
+		const f = v => (v /= 255) <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4;
+		const R = f(r), G = f(g), B = f(b);
+		const q = t => t > .008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+		const x = q((R * .4124 + G * .3576 + B * .1805) / .95047), y = q(R * .2126 + G * .7152 + B * .0722), z = q((R * .0193 + G * .1192 + B * .9505) / 1.08883);
+		return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+	}
+	const dE = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
 	function extract(img) {
-		const N = 64, cv = document.createElement('canvas');
+		const N = 128, cv = document.createElement('canvas');
 		cv.width = cv.height = N;
 		const cx = cv.getContext('2d', { willReadFrequently: true });
 		cx.drawImage(img, 0, 0, N, N);
-		const px = cx.getImageData(0, 0, N, N).data, B = {};
+		const px = cx.getImageData(0, 0, N, N).data, mid = N / 2;
+		const L = new Array(N * N).fill(null); // lab per pixel inside the circle
 		for (let i = 0; i < px.length; i += 4) {
 			const p = i / 4, X = p % N, Y = (p / N) | 0;
-			if (px[i + 3] < 200 || (X - 32) ** 2 + (Y - 32) ** 2 > 1000) continue;
-			const k = (px[i] >> 4) << 8 | (px[i + 1] >> 4) << 4 | px[i + 2] >> 4;
-			const b = B[k] ||= { n: 0, r: 0, g: 0, b: 0, x: 0, y: 0 };
-			b.n++; b.r += px[i]; b.g += px[i + 1]; b.b += px[i + 2]; b.x += X; b.y += Y;
+			if (px[i + 3] < 200 || (X + .5 - mid) ** 2 + (Y + .5 - mid) ** 2 > (mid - 1) ** 2) continue;
+			L[p] = { rgb: [px[i], px[i + 1], px[i + 2]], lab: lab([px[i], px[i + 1], px[i + 2]]), X, Y };
 		}
-		const all = Object.values(B).map(b => ({ rgb: [b.r / b.n, b.g / b.n, b.b / b.n], n: b.n, x: b.x / b.n / N * 100, y: b.y / b.n / N * 100 })).sort((a, b) => b.n - a.n);
-		const out = [];
-		for (const s of all) {
-			if (out.every(o => Math.hypot(...o.rgb.map((v, i) => v - s.rgb[i])) > 70)) out.push(s);
-			if (out.length === 5) break;
+		// only pixels sitting inside a flat area count: blurry edges between two colours are not colours of their own
+		let pts = [];
+		L.forEach((q, p) => {
+			if (!q) return;
+			let same = 0;
+			for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+				if (!dx && !dy) continue;
+				const n = L[(q.Y + dy) * N + q.X + dx];
+				if (n && q.X + dx >= 0 && q.X + dx < N && dE(q.lab, n.lab) < 8) same++;
+			}
+			if (same >= 6) pts.push(q);
+		});
+		if (pts.length < N * N * .15) pts = L.filter(Boolean);
+
+		// seed with the most common distinct colours, then let k-means settle on what is really in the picture
+		const B = {};
+		pts.forEach(q => { const k = (q.rgb[0] >> 3) << 10 | (q.rgb[1] >> 3) << 5 | q.rgb[2] >> 3; (B[k] ||= { n: 0, q }).n++; });
+		let cent = [];
+		for (const s of Object.values(B).sort((a, b) => b.n - a.n)) {
+			if (cent.every(c => dE(c, s.q.lab) > 12)) cent.push(s.q.lab);
+			if (cent.length === 18) break;
 		}
-		return out;
+		const lbl = new Int8Array(pts.length);
+		for (let it = 0; it < 8; it++) {
+			const sum = cent.map(() => [0, 0, 0, 0]);
+			pts.forEach((q, i) => {
+				let best = 0, bd = Infinity;
+				cent.forEach((c, k) => { const d = dE(c, q.lab); if (d < bd) { bd = d; best = k; } });
+				lbl[i] = best;
+				const s = sum[best]; s[0] += q.lab[0]; s[1] += q.lab[1]; s[2] += q.lab[2]; s[3]++;
+			});
+			cent = cent.map((c, k) => sum[k][3] ? [sum[k][0] / sum[k][3], sum[k][1] / sum[k][3], sum[k][2] / sum[k][3]] : c);
+		}
+
+		// pin each colour on the spot where it is most solid: the pixel with the most same-colour neighbours (ties go nearest the middle)
+		const grid = new Int8Array(N * N).fill(-1), out = cent.map(() => ({ rgb: [0, 0, 0], n: 0, mx: 0, my: 0, best: -Infinity, x: 50, y: 50 }));
+		pts.forEach((q, i) => { grid[q.Y * N + q.X] = lbl[i]; const o = out[lbl[i]]; o.n++; o.mx += q.X; o.my += q.Y; o.rgb[0] += q.rgb[0]; o.rgb[1] += q.rgb[1]; o.rgb[2] += q.rgb[2]; });
+		pts.forEach((q, i) => {
+			const o = out[lbl[i]];
+			let d = 0;
+			for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const X = q.X + dx, Y = q.Y + dy; if (X >= 0 && Y >= 0 && X < N && Y < N && grid[Y * N + X] === lbl[i]) d++; }
+			const score = d - .05 * Math.hypot(q.X - o.mx / o.n, q.Y - o.my / o.n);
+			if (score > o.best) { o.best = score; o.x = (q.X + .5) / N * 100; o.y = (q.Y + .5) / N * 100; }
+		});
+		let list = out.filter(o => o.n > pts.length * .0015).map(o => ({ ...o, rgb: o.rgb.map(v => v / o.n) })); // keep small details like an inner ear or a highlight
+		for (let merged = true; merged;) { // fold colours that settled almost on top of each other
+			merged = false;
+			for (let a = 0; a < list.length && !merged; a++) for (let b = a + 1; b < list.length && !merged; b++) {
+				const A = list[a], Bx = list[b];
+				if (dE(lab(A.rgb), lab(Bx.rgb)) < 9) {
+					const n = A.n + Bx.n;
+					A.rgb = A.rgb.map((v, i) => (v * A.n + Bx.rgb[i] * Bx.n) / n);
+					if (Bx.n > A.n) { A.x = Bx.x; A.y = Bx.y; }
+					A.n = n; list.splice(b, 1); merged = true;
+				}
+			}
+		}
+		return list.sort((a, b) => b.n - a.n).slice(0, 16);
 	}
 
 	const html = document.documentElement;
 	let lastSw = null;
+	let picked = Number(store.get('pick') ?? -1); // -1 = random each visit, else the swatch the visitor locked
+	let autoIdx = -1, avoid = -1;
 	function theme(sw = lastSw) {
 		if (!sw) return;
 		lastSw = sw;
 		const hs = sw.map(s => toHsl(s.rgb));
 		const vivid = hs.map((h, i) => [h[1] * Math.sqrt(sw[i].n), i]).sort((a, b) => b[0] - a[0]);
-		const g = hs[vivid[0][1]], hasColour = g[1] > .2;
-		const gh = hasColour ? g[0] : 35, gs = hasColour ? Math.min(Math.max(g[1], .55), .9) : .55;
+		if (!hs[autoIdx]) { // once per visit: a random swatch, favouring the colourful ones
+			const bright = hs.map((_, i) => i).filter(i => hs[i][1] > .15 && hs[i][2] > .12 && hs[i][2] < .92), pool = bright.length ? bright : hs.map((_, i) => i);
+			const last = Number(store.get('last') ?? -1), opts = pool.filter(i => i !== last && i !== avoid);
+			autoIdx = (opts.length ? opts : pool)[Math.random() * (opts.length || pool.length) | 0];
+			store.set('last', autoIdx);
+			avoid = -1;
+		}
+		const manual = !!hs[picked], g = hs[manual ? picked : autoIdx];
+		const gh = g[0];
+		const gs = manual ? Math.min(g[1], .9) : Math.min(Math.max(g[1], .55), .9);
 		const dark = hs.reduce((a, b) => b[2] < a[2] ? b : a), light = hs.reduce((a, b) => b[2] > a[2] ? b : a);
 		const second = vivid.slice(1).map(v => hs[v[1]]).find(h => h[1] > .3 && Math.abs(h[0] - gh) > 30);
 		const rh = second ? second[0] : (gh + 180) % 360;
@@ -480,7 +637,7 @@
 			'--card-fg': hsl(light[0], ls, .95)
 		};
 		if (isDark) Object.assign(v, {
-			'--ground': hsl(gh, gs * .6, .12), '--ground-deep': hsl(gh, gs * .7, .19),
+			'--ground': hsl(gh, gs * .8, .15), '--ground-deep': hsl(gh, gs * .85, .22),
 			'--hover': hsl(gh, gs * .45, .22), '--feature': hsl(gh, gs * .5, .21),
 			'--card': hsl(dark[0], Math.min(dark[1], .3), .07),
 			'--ink': hsl(light[0], Math.min(ls, .5), .93), '--ink-2': hsl(light[0], Math.min(ls, .35), .76),
@@ -495,7 +652,97 @@
 		});
 		for (const k in v) root.setProperty(k, v[k]);
 		const tc = $('meta[name="theme-color"]'); if (tc) tc.content = v['--ground'];
+		paintChips();
 	}
+
+	/* ---------- Palette picker: tap a swatch to theme the site from it ---------- */
+	const LETTERS = 'ABCDEFGHIJKLMNOP';
+	function paintChips() {
+		$$('.chip').forEach((c, i) => {
+			c.setAttribute('aria-pressed', i === picked);
+			c.classList.toggle('auto', picked < 0 && i === autoIdx);
+		});
+	}
+	function colourName(rgb) {
+		const [h, , l] = toHsl(rgb), chroma = Math.max(...rgb) - Math.min(...rgb); // chroma, not saturation: saturation explodes near white and black
+		if (chroma < 16) return l > .93 ? 'White' : l < .13 ? 'Near black' : l > .7 ? 'Light grey' : l < .35 ? 'Dark grey' : 'Grey';
+		if (l < .13) return 'Near black';
+		let fam = h < 15 || h >= 345 ? 'red' : h < 40 ? 'orange' : h < 65 ? 'yellow' : h < 95 ? 'lime' : h < 165 ? 'green' : h < 195 ? 'teal' : h < 255 ? 'blue' : h < 290 ? 'purple' : 'pink';
+		if (chroma < 48) return (l > .7 ? 'Light ' : l < .35 ? 'Dark ' : '') + (h < 70 || h >= 330 ? (l > .35 && l <= .7 ? 'Warm grey' : 'warm grey') : (l > .35 && l <= .7 ? 'Cool grey' : 'cool grey'));
+		if (fam === 'red' && l > .7) fam = 'pink';
+		else if (fam === 'orange' && l > .75) return 'Peach';
+		else if ((fam === 'orange' || fam === 'red') && l < .42) fam = 'brown';
+		else if ((fam === 'orange' || fam === 'yellow') && chroma < 110 && l > .4 && l < .78) fam = 'tan';
+		const tone = l > .85 ? 'Pale ' : l > .72 ? 'Light ' : l < .3 ? 'Deep ' : '';
+		const n = tone + fam;
+		return n[0].toUpperCase() + n.slice(1);
+	}
+	const hlPin = (i, on) => $$('.pin').find(p => p.dataset.k.split(',').includes(String(i)))?.classList.toggle('hl', on);
+	function nextColour(slow) { // new random swatch, never the one we are leaving
+		avoid = picked >= 0 ? picked : autoIdx;
+		picked = -1; autoIdx = -1;
+		store.set('pick', -1);
+		root.setProperty('--shift', slow ? '10s' : '1s');
+		theme(); paintChips();
+	}
+	const shuffle = () => nextColour(false);
+	// unlocked: wander through the avatar's colours, very slowly
+	setInterval(() => { if (picked < 0 && lastSw && !document.hidden && !reduceMotion.matches) nextColour(true); }, 16000);
+	function wireChip(c, i) {
+		c.tabIndex = 0;
+		c.setAttribute('role', 'button');
+		c.addEventListener('click', () => {
+			if (!lastSw || !lastSw[i]) return;
+			if (picked === i) return shuffle(); // tapping the locked colour again goes back to a fresh random one
+			picked = i;
+			store.set('pick', picked);
+			root.setProperty('--shift', '1s');
+			theme(); paintChips();
+		});
+		c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.click(); } });
+		['mouseenter', 'focus'].forEach(t => c.addEventListener(t, () => hlPin(i, true)));
+		['mouseleave', 'blur'].forEach(t => c.addEventListener(t, () => hlPin(i, false)));
+	}
+	// one chip per colour found in the avatar; pins that would overlap share a pin labelled with both letters
+	function buildKey(sw) {
+		const key = $('.key'), pins = $('.pins'), seen = {};
+		key.textContent = ''; pins.textContent = '';
+		key.classList.toggle('dense', sw.length > 8); // long lists go two to a row
+		sw.forEach((s, i) => {
+			let name = colourName(s.rgb);
+			seen[name] = (seen[name] || 0) + 1;
+			if (seen[name] > 1) name += ' ' + seen[name];
+			const li = document.createElement('li');
+			li.className = 'chip';
+			li.title = hex(s.rgb);
+			li.style.setProperty('--c', hex(s.rgb));
+			li.style.setProperty('--i', i);
+			li.innerHTML = '<b></b><i></i><span></span><em></em>';
+			$('b', li).textContent = LETTERS[i];
+			$('span', li).textContent = name;
+			$('em', li).textContent = hex(s.rgb);
+			key.append(li);
+			wireChip(li, i);
+		});
+		const parent = sw.map((_, i) => i);
+		const top = i => parent[i] === i ? i : (parent[i] = top(parent[i]));
+		for (let a = 0; a < sw.length; a++) for (let b = a + 1; b < sw.length; b++) if (Math.hypot(sw[a].x - sw[b].x, sw[a].y - sw[b].y) < 9) parent[top(b)] = top(a);
+		const groups = {};
+		sw.forEach((_, i) => (groups[top(i)] ||= []).push(i));
+		Object.values(groups).forEach((ids, n) => {
+			const pin = document.createElement('li');
+			pin.className = 'pin';
+			pin.dataset.k = ids.join(',');
+			pin.textContent = ids.map(i => LETTERS[i]).join('');
+			pin.style.setProperty('--x', sw[ids[0]].x + '%');
+			pin.style.setProperty('--y', sw[ids[0]].y + '%');
+			pin.style.setProperty('--i', n);
+			pins.append(pin);
+		});
+		paintChips();
+	}
+	$$('.chip').forEach(wireChip);
+	paintChips();
 
 	/* ---------- Theme toggle (dark by default) ---------- */
 	const themeBtn = $('#theme');
@@ -503,9 +750,9 @@
 	paintToggle();
 	themeBtn.addEventListener('click', () => {
 		const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
-		const flip = () => { html.dataset.theme = next; theme(); paintToggle(); };
 		try { localStorage.setItem('theme', next); } catch { /* storage blocked */ }
-		if (document.startViewTransition && !reduceMotion.matches) document.startViewTransition(flip); else flip();
+		root.setProperty('--shift', '1s');
+		html.dataset.theme = next; theme(); paintToggle();
 	});
 
 	function applyAvatar(u) {
@@ -529,19 +776,76 @@
 			try {
 				const sw = extract(img);
 				if (sw.length < 3) return;
+				buildKey(sw);
 				theme(sw);
-				$$('.chip').forEach((chip, i) => {
-					const s = sw[i], pin = $(`.pin[data-k="${chip.dataset.k}"]`);
-					chip.hidden = pin.hidden = !s;
-					if (!s) return;
-					chip.style.setProperty('--c', hex(s.rgb));
-					$('span', chip).textContent = NAMES[i];
-					$('em', chip).textContent = hex(s.rgb);
-					pin.style.setProperty('--x', s.x + '%'); pin.style.setProperty('--y', s.y + '%');
-				});
 			} catch { /* canvas blocked: keep image, keep default palette */ }
 		};
 		img.src = url;
+	}
+
+	/* ---------- Spotify card with a live progress bar ---------- */
+	let spot = null;
+	const clock = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+	function tickSpot() {
+		if (!spot || !spot.fill.isConnected) { spot = null; return; }
+		const now = Date.now(), total = spot.end - spot.start, p = Math.min(1, Math.max(0, (now - spot.start) / total));
+		spot.fill.style.setProperty('--p', p);
+		spot.time.textContent = `${clock(now - spot.start)} / ${clock(total)}`;
+	}
+	setInterval(tickSpot, 1000);
+
+	function addSpotify(sp) {
+		const li = document.createElement('li');
+		li.className = 'spot';
+		const img = new Image();
+		img.className = 'art';
+		img.alt = `${sp.album} cover`;
+		img.src = sp.album_art_url;
+		const strong = document.createElement('strong');
+		const verb = document.createElement('span');
+		verb.className = 'verb';
+		verb.textContent = 'Listening to ';
+		const a = document.createElement('a');
+		a.href = `https://open.spotify.com/track/${sp.track_id}`;
+		a.target = '_blank';
+		a.rel = 'noopener';
+		a.textContent = sp.song;
+		const sr = document.createElement('span');
+		sr.className = 'sr';
+		sr.textContent = ' (opens in a new tab)';
+		strong.append(verb, a, sr);
+		const artist = document.createElement('span');
+		artist.textContent = String(sp.artist).replace(/;/g, ',');
+		li.append(img, strong, artist);
+		acts.append(li); // attach first: the timer only ticks while the bar is in the page
+		if (sp.timestamps && sp.timestamps.end > sp.timestamps.start) {
+			const bar = document.createElement('div'), fill = document.createElement('i'), time = document.createElement('span');
+			bar.className = 'bar'; bar.setAttribute('aria-hidden', 'true'); bar.append(fill);
+			time.className = 'times'; time.setAttribute('aria-hidden', 'true');
+			li.append(bar, time);
+			spot = { start: sp.timestamps.start, end: sp.timestamps.end, fill, time };
+			tickSpot();
+		}
+	}
+
+	/* ---------- Last online (status.json is written by the GitHub Action) ---------- */
+	const seenEl = $('#now-seen');
+	const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+	let seenData;
+	function ago(sec) {
+		if (sec < 90) return 'just now';
+		if (sec < 3600) return rtf.format(-Math.round(sec / 60), 'minute');
+		if (sec < 86400) return rtf.format(-Math.round(sec / 3600), 'hour');
+		return rtf.format(-Math.round(sec / 86400), 'day');
+	}
+	function showSeen(status) {
+		if (status !== 'offline') { seenEl.hidden = true; return; }
+		seenData ||= fetch(`status.json?t=${Math.floor(Date.now() / 60000)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+		seenData.then(j => {
+			if (!j || j.status !== 'offline' || !j.lastOnline) { seenEl.hidden = true; return; }
+			seenEl.textContent = `Last online ${ago(Date.now() / 1000 - j.lastOnline)}`;
+			seenEl.hidden = false;
+		});
 	}
 
 	function render(d) {
@@ -557,6 +861,7 @@
 
 		now.dataset.state = status;
 		word.textContent = STATE[status];
+		showSeen(status);
 		const u = d.discord_user;
 		userEl.textContent = u ? `@${u.username}` : '';
 
@@ -565,7 +870,7 @@
 			addAct('', custom.state || custom.emoji.name);
 		}
 		if (d.listening_to_spotify && d.spotify) {
-			addAct('Listening to', d.spotify.song, `${d.spotify.artist}`.replace(/;/g, ','), Promise.resolve(d.spotify.album_art_url));
+			addSpotify(d.spotify);
 		}
 		list.forEach(a => {
 			const verb = a.type === 0 ? 'Playing' : a.type === 1 ? 'Streaming' : a.type === 2 ? 'Listening to' : a.type === 3 ? 'Watching' : 'Doing';

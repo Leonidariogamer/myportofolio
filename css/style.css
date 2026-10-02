@@ -1,5 +1,21 @@
 /* Link_theFox: character reference sheet */
 
+/* colours are registered so a palette change (new swatch, dark/light) transitions smoothly */
+@property --ground { syntax: '<color>'; inherits: true; initial-value: #F2A93B; }
+@property --ground-deep { syntax: '<color>'; inherits: true; initial-value: #E58A1F; }
+@property --hi { syntax: '<color>'; inherits: true; initial-value: #F2A93B; }
+@property --hover { syntax: '<color>'; inherits: true; initial-value: #F2A93B; }
+@property --feature { syntax: '<color>'; inherits: true; initial-value: #F2A93B; }
+@property --card { syntax: '<color>'; inherits: true; initial-value: #2A160E; }
+@property --card-fg { syntax: '<color>'; inherits: true; initial-value: #FCF3E3; }
+@property --ink { syntax: '<color>'; inherits: true; initial-value: #2A160E; }
+@property --ink-2 { syntax: '<color>'; inherits: true; initial-value: #5B4033; }
+@property --paper { syntax: '<color>'; inherits: true; initial-value: #FCF3E3; }
+@property --paper-2 { syntax: '<color>'; inherits: true; initial-value: #F4E4C8; }
+@property --red { syntax: '<color>'; inherits: true; initial-value: #B8331A; }
+@property --amber-deep { syntax: '<color>'; inherits: true; initial-value: #E58A1F; }
+:root { transition: --ground var(--shift) cubic-bezier(.4, 0, .2, 1), --ground-deep var(--shift) cubic-bezier(.4, 0, .2, 1), --hi var(--shift) cubic-bezier(.4, 0, .2, 1), --hover var(--shift) cubic-bezier(.4, 0, .2, 1), --feature var(--shift) cubic-bezier(.4, 0, .2, 1), --card var(--shift) cubic-bezier(.4, 0, .2, 1), --card-fg var(--shift) cubic-bezier(.4, 0, .2, 1), --ink var(--shift) cubic-bezier(.4, 0, .2, 1), --ink-2 var(--shift) cubic-bezier(.4, 0, .2, 1), --paper var(--shift) cubic-bezier(.4, 0, .2, 1), --paper-2 var(--shift) cubic-bezier(.4, 0, .2, 1), --red var(--shift) cubic-bezier(.4, 0, .2, 1), --amber-deep var(--shift) cubic-bezier(.4, 0, .2, 1); }
+
 :root {
 	--amber-deep: #E58A1F;
 	--ink: #2A160E;
@@ -17,6 +33,7 @@
 	--hand: "Caveat", "Segoe Print", cursive;
 
 	--gap: clamp(16px, 2.2vw, 28px);
+	--shift: 1s; /* colour transition length: 1s for taps, ~10s while the palette drifts */
 	color-scheme: light;
 
 	/* semantic tokens, rewritten from the avatar palette in js/app.js */
@@ -135,13 +152,21 @@ button { font: inherit; color: inherit; }
 	transition: transform .5s var(--ease);
 }
 
-.pfp {
-	display: block; width: 100%; height: 100%;
+.pfp-wrap {
+	width: 100%; height: 100%;
 	border-radius: 50%;
+	overflow: hidden;
 	background: var(--paper-2);
 	box-shadow: 0 18px 30px -14px rgba(42, 22, 14, .5);
 	animation: iris .9s var(--ease) .4s both;
 }
+.pfp { display: block; width: 100%; height: 100%; transform-origin: var(--po, 50% 50%); transform: var(--pose, none); transition: transform 1s var(--ease); }
+
+/* reference-sheet poses: same character, a different view per tab */
+.portrait-tilt[data-pose="works"] { --pose: scale(1.7); --po: 60% 58%; }
+.portrait-tilt[data-pose="about"] { --pose: scaleX(-1) rotate(-4deg) scale(1.08); }
+.pins { transition: opacity .45s var(--ease); }
+.portrait-tilt:not([data-pose="status"]) .pins { opacity: 0; }
 
 @keyframes iris {
 	from { clip-path: circle(0% at 50% 55%); transform: scale(.86) rotate(-6deg); }
@@ -160,9 +185,9 @@ button { font: inherit; color: inherit; }
 .pins { position: absolute; inset: 0; }
 .pin {
 	position: absolute; left: var(--x); top: var(--y);
-	width: 24px; height: 24px; margin: -12px 0 0 -12px;
+	min-width: 24px; height: 24px; padding: 0 5px; translate: -50% -50%;
 	display: grid; place-items: center;
-	border-radius: 50%;
+	border-radius: 999px;
 	background: var(--ink); color: var(--paper);
 	font-size: .75rem; font-weight: 800;
 	border: 2px solid var(--paper);
@@ -179,11 +204,11 @@ button { font: inherit; color: inherit; }
 .note-portrait #pose { display: inline-block; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
-.key { display: grid; gap: 8px; }
+.key { display: grid; gap: 6px; }
 .chip {
 	--c: #888;
 	display: grid; grid-template-columns: 24px 38px 1fr auto; align-items: center; gap: 10px;
-	padding: 6px 12px 6px 8px;
+	padding: 4px 12px 4px 6px;
 	background: var(--paper);
 	border: 2px solid var(--ink);
 	border-radius: 999px;
@@ -198,11 +223,7 @@ button { font: inherit; color: inherit; }
 
 .model:has(.chip:hover) .chip:not(:hover) { opacity: .6; }
 .chip:hover { transform: translateX(6px); background: var(--paper-2); }
-.model:has([data-k="hair"]:hover) .pin[data-k="hair"],
-.model:has([data-k="eyes"]:hover) .pin[data-k="eyes"],
-.model:has([data-k="muzzle"]:hover) .pin[data-k="muzzle"],
-.model:has([data-k="ears"]:hover) .pin[data-k="ears"],
-.model:has([data-k="tee"]:hover) .pin[data-k="tee"] { transform: scale(1.7); background: var(--red); }
+.pin.hl { transform: scale(1.5); background: var(--red); color: var(--card-fg); }
 
 /* ---------- Head ---------- */
 
@@ -410,6 +431,11 @@ h2 { font-size: clamp(1.75rem, 3.2vw, 2.375rem); font-weight: 800; font-stretch:
 	body { font-size: 1rem; }
 	.model { grid-template-columns: 1fr; justify-items: center; }
 	.portrait { width: min(170px, 52%); padding: 12px; }
+	.key { grid-template-columns: 1fr 1fr; }
+	.chip { grid-template-columns: 22px 26px 1fr; gap: 8px; font-size: .8125rem; padding: 4px 10px 4px 5px; }
+	.chip em { display: none; }
+	.chip b { width: 22px; height: 22px; }
+	.chip i { height: 18px; }
 	.work h3 { font-size: 1.2rem; }
 	.model { display: contents; }
 	.head { text-align: left; }
@@ -497,7 +523,7 @@ html[data-theme="dark"] .b2 { background: radial-gradient(closest-side, color-mi
 html[data-theme="dark"] .b3 { background: radial-gradient(closest-side, color-mix(in srgb, var(--hi) 30%, transparent), transparent); }
 html[data-theme="dark"] .bg-ring { border-color: color-mix(in srgb, var(--ink) 22%, transparent); }
 html[data-theme="dark"] .stk svg { filter: drop-shadow(0 8px 8px rgba(0, 0, 0, .5)); }
-html[data-theme="dark"] .pfp { box-shadow: 0 18px 30px -14px rgba(0, 0, 0, .8); }
+html[data-theme="dark"] .pfp-wrap { box-shadow: 0 18px 30px -14px rgba(0, 0, 0, .8); }
 html[data-theme="dark"] .work::after { opacity: .5; }
 
 /* ---------- Theme toggle ---------- */
@@ -507,9 +533,66 @@ html[data-theme="dark"] .work::after { opacity: .5; }
 .theme .i-sun { opacity: 0; transform: rotate(-90deg) scale(.5); }
 html[data-theme="dark"] .theme .i-moon { opacity: 0; transform: rotate(90deg) scale(.5); }
 html[data-theme="dark"] .theme .i-sun { opacity: 1; transform: none; }
-::view-transition-group(root) { animation-duration: .5s; }
 
 /* ---------- Game cover ---------- */
 .acts li.has-art { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 4px 14px; }
 .acts li.has-art .art { grid-row: 1 / span 2; width: 56px; height: 56px; border-radius: 12px; object-fit: cover; background: rgba(252, 243, 227, .12); box-shadow: 0 6px 12px -4px rgba(0, 0, 0, .5); animation: pop .6s var(--ease) both; }
 .acts li.has-art > strong, .acts li.has-art > span { grid-column: 2; }
+
+/* ---------- Palette picker ---------- */
+.chip { cursor: pointer; }
+.chip[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--hi); }
+.key-hint { font-family: var(--hand); font-weight: 700; font-size: 1.2rem; line-height: 1.3; color: var(--ink-2); rotate: -1deg; }
+
+/* ---------- Spotify card + last online ---------- */
+.now-seen { color: var(--card-fg); opacity: .8; font-size: .9375rem; }
+.acts li.spot { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 4px 14px; }
+.spot .art { grid-row: 1 / span 2; width: 56px; height: 56px; border-radius: 12px; object-fit: cover; box-shadow: 0 6px 12px -4px rgba(0, 0, 0, .5); }
+.spot > strong, .spot > span:not(.times) { grid-column: 2; }
+.spot a { color: inherit; text-decoration-color: var(--hi); }
+.spot .bar { grid-column: 1 / -1; margin-top: 6px; height: 5px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--card-fg) 20%, transparent); }
+.spot .bar i { display: block; height: 100%; width: 100%; background: var(--hi); transform-origin: left; transform: scaleX(var(--p, 0)); transition: transform 1s linear; }
+.spot .times { grid-column: 1 / -1; font-size: .75rem; font-variant-numeric: tabular-nums; color: color-mix(in srgb, var(--card-fg) 72%, transparent); }
+
+/* ---------- Secrets: corner button, confetti, toast, game ---------- */
+button.reg-br { pointer-events: auto; cursor: pointer; background: none; border: 0; padding: 0; transition: transform .6s var(--ease); }
+button.reg-br:hover { transform: rotate(90deg) scale(1.2); }
+.confetti { position: fixed; inset: 0; z-index: 60; pointer-events: none; overflow: hidden; }
+.confetti svg { position: absolute; left: 50%; top: 38%; width: var(--s); height: var(--s); fill: var(--f); stroke: var(--ink); stroke-width: 1.3; stroke-linejoin: round; }
+.toast { position: fixed; left: 50%; bottom: 96px; z-index: 70; padding: 12px 22px; border-radius: 999px; background: var(--card); color: var(--card-fg); font-weight: 800; box-shadow: 0 16px 30px -12px rgba(0, 0, 0, .6); animation: toast 2.5s var(--ease) both; }
+@keyframes toast { 0% { opacity: 0; transform: translate(-50%, 16px); } 12%, 82% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+
+.game { border: 0; padding: 0; margin: auto; max-width: none; max-height: none; overflow: visible; background: transparent; color: var(--card-fg); }
+.game::backdrop { background: rgba(10, 6, 4, .75); }
+.game[open] { animation: lift .5s var(--ease) both; }
+.game-card { width: min(500px, 94vw); display: grid; gap: 12px; padding: 18px; border-radius: 22px; background: var(--card); border: 1px solid color-mix(in srgb, var(--card-fg) 20%, transparent); box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .8); }
+.game-card :focus-visible { outline-color: var(--card-fg); }
+.game-head { display: flex; justify-content: space-between; align-items: center; }
+.game-head h2 { font-size: 1.5rem; color: var(--hi); }
+.game-x { width: 40px; height: 40px; border: 0; border-radius: 50%; cursor: pointer; font-size: 1.5rem; line-height: 1; color: inherit; background: color-mix(in srgb, var(--card-fg) 16%, transparent); }
+.game-help { font-size: .875rem; color: color-mix(in srgb, var(--card-fg) 80%, transparent); }
+#game-cv { display: block; width: 100%; height: auto; aspect-ratio: 3 / 4; border-radius: 12px; touch-action: none; background: var(--card); }
+.game-bar { display: flex; justify-content: space-between; font-weight: 700; }
+.game-bar b { font-variant-numeric: tabular-nums; color: var(--hi); }
+.game-start { justify-self: center; border: 0; padding: 12px 26px; border-radius: 999px; cursor: pointer; font-weight: 800; background: var(--hi); color: var(--card); }
+
+/* ---------- Konami code HUD ---------- */
+.kcode { position: fixed; left: 50%; bottom: 150px; z-index: 70; display: flex; gap: 6px; padding: 10px 12px; border-radius: 999px; background: var(--card); box-shadow: 0 16px 30px -12px rgba(0, 0, 0, .6); opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity .3s var(--ease), transform .4s var(--ease); }
+.kcode.show { opacity: 1; transform: translate(-50%, 0); }
+.kcode span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; font-weight: 800; color: color-mix(in srgb, var(--card-fg) 50%, transparent); border: 2px solid color-mix(in srgb, var(--card-fg) 25%, transparent); transition: background-color .2s, color .2s, border-color .2s; }
+.kcode span.on { background: var(--hi); color: var(--card); border-color: var(--hi); animation: pip .45s var(--ease); }
+.kcode.fail { animation: shake .4s; }
+.kcode.done span { animation: pip .6s var(--ease); }
+@keyframes pip { from { transform: scale(.4); } 60% { transform: scale(1.3); } to { transform: scale(1); } }
+@keyframes shake { 25% { translate: -8px 0; } 50% { translate: 8px 0; } 75% { translate: -5px 0; } }
+
+/* the auto-picked swatch gets a dashed ring so people can see which colour themed the page */
+.chip.auto { outline: 2px dashed var(--hi); outline-offset: 3px; }
+
+/* ---------- Long colour lists ---------- */
+.key.dense { grid-template-columns: 1fr 1fr; gap: 6px; }
+.key.dense .chip { grid-template-columns: 22px 24px 1fr; gap: 8px; font-size: .8125rem; padding: 4px 8px 4px 5px; }
+.key.dense .chip em { display: none; }
+.key.dense .chip b { width: 22px; height: 22px; }
+.key.dense .chip i { height: 18px; }
+.key.dense .chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
