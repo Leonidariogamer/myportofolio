@@ -192,8 +192,8 @@ button { font: inherit; color: inherit; }
 	font-size: .75rem; font-weight: 800;
 	border: 2px solid var(--paper);
 	box-shadow: 0 3px 6px rgba(42, 22, 14, .35);
-	animation: pop .6s var(--ease) calc(.8s + var(--i) * .06s) both;
-	transition: transform .35s var(--ease), background-color .2s;
+	opacity: 0; transform: scale(.5); pointer-events: none;
+	transition: opacity .3s var(--ease), transform .4s var(--ease), background-color .2s;
 }
 @keyframes pop { from { transform: scale(0) rotate(-40deg); } to { transform: none; } }
 
@@ -223,7 +223,8 @@ button { font: inherit; color: inherit; }
 
 .model:has(.chip:hover) .chip:not(:hover) { opacity: .6; }
 .chip:hover { transform: translateX(6px); background: var(--paper-2); }
-.pin.hl { transform: scale(1.5); background: var(--red); color: var(--card-fg); }
+.pin.sel, .pin.hl { opacity: 1; transform: scale(1); }
+.pin.hl { transform: scale(1.35); background: var(--red); color: var(--card-fg); }
 
 /* ---------- Head ---------- */
 
@@ -596,3 +597,71 @@ button.reg-br:hover { transform: rotate(90deg) scale(1.2); }
 .key.dense .chip b { width: 22px; height: 22px; }
 .key.dense .chip i { height: 18px; }
 .key.dense .chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.key-name { display: none; }
+html { -webkit-tap-highlight-color: transparent; }
+
+/* ---------- Phones ---------- */
+@media (max-width: 680px) {
+	html { font-size: 15px; }
+	.ground { padding: 8px 8px 80px; }
+	.sheet { padding: 14px; gap: 12px; border-radius: 10px; }
+	.reg-tl, .reg-tr, .reg-bl, .stk, .bg-ring, .note-portrait { display: none; }
+	.theme { top: 10px; right: 10px; width: 38px; height: 38px; }
+	.theme svg { width: 18px; height: 18px; }
+
+	.portrait { order: 0; width: min(150px, 44%); padding: 8px; }
+	.sheet .key, .sheet .key.dense { order: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+	.sheet .key .chip, .sheet .key.dense .chip { position: relative; width: 42px; height: 42px; padding: 0; gap: 0; border-radius: 50%; display: block; background: transparent; }
+	.sheet .key .chip:hover, .sheet .key.dense .chip:hover { transform: none; background: transparent; }
+	.sheet .key .chip i, .sheet .key.dense .chip i { display: block; position: absolute; inset: 0; width: auto; height: auto; border: 0; border-radius: 50%; }
+	.sheet .key .chip b, .sheet .key .chip span, .sheet .key .chip em, .sheet .key.dense .chip b, .sheet .key.dense .chip span, .sheet .key.dense .chip em { position: absolute; display: block; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+	.chip.auto { outline-offset: 3px; }
+	.key-name { order: 2; display: block; text-align: center; font-weight: 700; font-size: .9375rem; min-height: 1.4em; margin-top: -4px; }
+	.key-hint { order: 2; text-align: center; font-size: 1.05rem; rotate: 0deg; margin-top: -6px; }
+	.body { order: 3; gap: 16px; }
+
+	h1 { font-size: clamp(2.2rem, 12vw, 3rem); }
+	.tagline { font-size: 1.0625rem; }
+	.tagline.sub { font-size: .9375rem; }
+	.tabs { padding-left: 0; margin-bottom: -20px; }
+	.tab { padding: 9px 4px 11px; font-size: .9375rem; border-radius: 12px 12px 0 0; }
+	.tab[aria-selected="true"] { padding-bottom: 14px; }
+	.panels { padding: 16px; padding-top: 26px; border-radius: 8px; }
+	h2 { font-size: 1.6rem; }
+
+	.now { padding: 14px; gap: 8px; }
+	.now h2 { font-size: 1.1rem; }
+	.now-state { font-size: 1.7rem; }
+	.acts li { padding: 10px 12px; }
+	.find h2 { margin-bottom: 10px; }
+	.link { padding: 10px 12px; gap: 12px; }
+	.ico { width: 24px; height: 24px; }
+	.l-text strong { font-size: 1rem; }
+	.l-text small { font-size: .8125rem; }
+
+	.works { gap: 10px; }
+	.work, .work:first-child { padding: 14px; }
+	.work:first-child h3 { font-size: 1.6rem; }
+	.work:first-child .desc { font-size: 1rem; }
+	.about-lead { font-size: 1.9rem; }
+	.about-body { font-size: 1rem; }
+	.specs { margin-top: 18px; }
+	.specs > div { padding: 9px 0; grid-template-columns: 5.5rem 1fr; }
+	.note-panel { display: none; }
+
+	.titleblock { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: .65rem; }
+
+	/* music: just a round button until it is opened */
+	.music { right: 10px; bottom: 10px; }
+	.music-card { width: 100px; border-radius: 999px; }
+	.music-card:has(.m-open[aria-expanded="true"]) { width: min(330px, calc(100vw - 20px)); border-radius: 20px; }
+	.m-meta, .eq { display: none; }
+	.music-bar { padding: 6px; gap: 6px; }
+	.m-play { width: 42px; height: 42px; }
+	.m-open { width: 38px; height: 38px; }
+
+	/* the paw game fits short screens */
+	.game-card { max-height: 96dvh; overflow: auto; padding: 14px; }
+	#game-cv { width: auto; max-width: 100%; max-height: 58dvh; margin-inline: auto; }
+}

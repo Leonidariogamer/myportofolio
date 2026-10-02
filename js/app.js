@@ -151,7 +151,7 @@
 		get: k => { try { return localStorage.getItem(k); } catch { return null; } },
 		set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } }
 	};
-	const optedOut = store.get('music') === 'off'; // someone who paused it last time isn't autoplayed again
+	let optedOut = store.get('music') === 'off'; // paused by the visitor: now or on a previous visit, nothing may restart it by itself
 	let yt, vol = Number(store.get('vol') ?? 15), muted = false; // first try to autoplay with sound
 	mVol.value = vol;
 
@@ -179,8 +179,8 @@
 	});
 	mPlay.addEventListener('click', () => {
 		if (!yt) return;
-		if (card.dataset.state === 'playing') { yt.pauseVideo(); store.set('music', 'off'); }
-		else { unmute(); yt.playVideo(); store.set('music', 'on'); }
+		if (card.dataset.state === 'playing') { optedOut = true; yt.pauseVideo(); store.set('music', 'off'); }
+		else { optedOut = false; unmute(); yt.playVideo(); store.set('music', 'on'); }
 	});
 	mVol.addEventListener('input', () => {
 		vol = Number(mVol.value); store.set('vol', vol);
@@ -193,7 +193,7 @@
 		gestured = true; // remembered even if the player isn't ready yet, onReady / onStateChange finish the job
 		if (yt && yt.getPlayerState) { if (muted) unmute(); if (![1, 3].includes(yt.getPlayerState())) yt.playVideo(); }
 	};
-	['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, firstGesture, { capture: true }));
+	['pointerup', 'keydown'].forEach(t => document.addEventListener(t, firstGesture, { capture: true })); // pointerup: on touch screens that is when the browser counts a tap as a real interaction
 
 	// browsers block sound-on autoplay for visitors who haven't interacted yet: play muted, the first click unmutes
 	function fallbackMuted() {
@@ -662,7 +662,15 @@
 			c.setAttribute('aria-pressed', i === picked);
 			c.classList.toggle('auto', picked < 0 && i === autoIdx);
 		});
+		$$('.pin').forEach(p => p.classList.toggle('sel', picked >= 0 && p.dataset.k.split(',').includes(String(picked))));
 	}
+	const keyNameEl = $('#key-name');
+	function keyName(i) {
+		const c = $$('.chip')[i];
+		if (c) keyNameEl.textContent = `${$('b', c).textContent} · ${$('span', c).textContent} · ${$('em', c).textContent}${picked === i ? ' · locked' : ''}`;
+	}
+	let flashTimer = 0;
+	function flashPin(i) { hlPin(i, true); clearTimeout(flashTimer); flashTimer = setTimeout(() => hlPin(i, false), 2400); }
 	function colourName(rgb) {
 		const [h, , l] = toHsl(rgb), chroma = Math.max(...rgb) - Math.min(...rgb); // chroma, not saturation: saturation explodes near white and black
 		if (chroma < 16) return l > .93 ? 'White' : l < .13 ? 'Near black' : l > .7 ? 'Light grey' : l < .35 ? 'Dark grey' : 'Grey';
@@ -683,6 +691,7 @@
 		picked = -1; autoIdx = -1;
 		store.set('pick', -1);
 		root.setProperty('--shift', slow ? '10s' : '1s');
+		keyNameEl.textContent = '';
 		theme(); paintChips();
 	}
 	const shuffle = () => nextColour(false);
@@ -698,9 +707,10 @@
 			store.set('pick', picked);
 			root.setProperty('--shift', '1s');
 			theme(); paintChips();
+			flashPin(i); keyName(i);
 		});
 		c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); c.click(); } });
-		['mouseenter', 'focus'].forEach(t => c.addEventListener(t, () => hlPin(i, true)));
+		['mouseenter', 'focus'].forEach(t => c.addEventListener(t, () => { hlPin(i, true); keyName(i); }));
 		['mouseleave', 'blur'].forEach(t => c.addEventListener(t, () => hlPin(i, false)));
 	}
 	// one chip per colour found in the avatar; pins that would overlap share a pin labelled with both letters
