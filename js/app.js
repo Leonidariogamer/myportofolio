@@ -151,7 +151,7 @@
 		set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } }
 	};
 	const optedOut = store.get('music') === 'off'; // someone who paused it last time isn't autoplayed again
-	let yt, vol = Number(store.get('vol') ?? 15), muted = true;
+	let yt, vol = Number(store.get('vol') ?? 15), muted = false; // first try to autoplay with sound
 	mVol.value = vol;
 
 	const hint = t => { mHint.textContent = t; };
@@ -183,23 +183,36 @@
 	});
 	mVol.addEventListener('input', () => {
 		vol = Number(mVol.value); store.set('vol', vol);
-		if (yt) { yt.setVolume(vol); if (vol > 0 && muted) unmute(); }
+		if (yt) { yt.setVolume(vol); if (vol === 0) { yt.mute(); muted = true; } else if (muted) unmute(); }
 	});
 	// browsers only allow sound after a gesture: the first click or key anywhere unmutes it
 	const firstGesture = e => {
 		if (e.target.closest && e.target.closest('.music')) return;
-		if (optedOut || !muted) return;
+		if (optedOut) return;
 		gestured = true; // remembered even if the player isn't ready yet, onReady / onStateChange finish the job
-		if (yt && yt.unMute) { unmute(); if (card.dataset.state !== 'playing') yt.playVideo(); }
+		if (yt && yt.getPlayerState) { if (muted) unmute(); if (![1, 3].includes(yt.getPlayerState())) yt.playVideo(); }
 	};
 	['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, firstGesture, { capture: true }));
+
+	// browsers block sound-on autoplay for visitors who haven't interacted yet: play muted, the first click unmutes
+	function fallbackMuted() {
+		if (!yt || muted || optedOut || gestured) return;
+		yt.mute(); muted = true; yt.playVideo();
+		hint('Playing muted. Click anywhere to hear it at low volume.');
+	}
 
 	window.onYouTubeIframeAPIReady = () => {
 		yt = new YT.Player('yt', {
 			videoId: VIDEO, width: '100%', height: '100%',
-			playerVars: { autoplay: optedOut ? 0 : 1, mute: 1, controls: 0, disablekb: 1, loop: 1, playlist: VIDEO, playsinline: 1, rel: 0, modestbranding: 1 },
+			playerVars: { autoplay: optedOut ? 0 : 1, mute: 0, controls: 0, disablekb: 1, loop: 1, playlist: VIDEO, playsinline: 1, rel: 0, modestbranding: 1 },
 			events: {
-				onReady: e => { e.target.setVolume(vol); e.target.mute(); if (!optedOut) { e.target.playVideo(); if (gestured) unmute(); } else setState('paused'); },
+				onReady: e => {
+					e.target.setVolume(vol);
+					if (optedOut) return setState('paused');
+					e.target.playVideo(); // with sound; the browser decides whether it may
+					setTimeout(() => { if (![1, 3].includes(e.target.getPlayerState())) fallbackMuted(); }, 2500);
+				},
+				onAutoplayBlocked: () => fallbackMuted(),
 				onError: e => { setState('paused'); hint(e.data === 153 ? 'YouTube won’t play on pages opened as local files. It works once the site is online (or served locally).' : 'YouTube refused to play this (error ' + e.data + '). Use the Bandcamp link below.'); console.warn('YouTube player error', e.data); },
 				onStateChange: e => { setState(e.data === 1 ? 'playing' : e.data === 2 ? 'paused' : card.dataset.state); if (e.data === 1 && gestured && muted && !optedOut) unmute(); }
 			}
